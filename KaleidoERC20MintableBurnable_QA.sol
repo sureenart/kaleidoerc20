@@ -1,7 +1,7 @@
 pragma solidity ^0.6.2;
 
-// import "node_modules/@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
-// import "node_modules/@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 // FOR QA ONLY
 contract KaleidoERC20MintableBurnable is ERC20Burnable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
