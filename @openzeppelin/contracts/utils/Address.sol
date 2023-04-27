@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.8.0) (utils/Address.sol)
 
-pragma solidity ^0.8.1;
+pragma solidity ^0.6.2;
 
 /**
  * @dev Collection of functions related to the address type
@@ -23,22 +22,16 @@ library Address {
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
      * ====
-     *
-     * [IMPORTANT]
-     * ====
-     * You shouldn't rely on `isContract` to protect against flash loan attacks!
-     *
-     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
-     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
-     * constructor.
-     * ====
      */
     function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize/address.code.length, which returns 0
-        // for contracts in construction, since the code is only stored at the end
-        // of the constructor execution.
-
-        return account.code.length > 0;
+        // According to EIP-1052, 0x0 is the value returned for not-yet created accounts
+        // and 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 is returned
+        // for accounts without code, i.e. `keccak256('')`
+        bytes32 codehash;
+        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { codehash := extcodehash(account) }
+        return (codehash != accountHash && codehash != 0x0);
     }
 
     /**
@@ -60,13 +53,14 @@ library Address {
     function sendValue(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, "Address: insufficient balance");
 
-        (bool success, ) = recipient.call{value: amount}("");
+        // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
+        (bool success, ) = recipient.call{ value: amount }("");
         require(success, "Address: unable to send value, recipient may have reverted");
     }
 
     /**
      * @dev Performs a Solidity function call using a low level `call`. A
-     * plain `call` is an unsafe replacement for a function call: use this
+     * plain`call` is an unsafe replacement for a function call: use this
      * function instead.
      *
      * If `target` reverts with a revert reason, it is bubbled up by this
@@ -83,7 +77,7 @@ library Address {
      * _Available since v3.1._
      */
     function functionCall(address target, bytes memory data) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, 0, "Address: low-level call failed");
+      return functionCall(target, data, "Address: low-level call failed");
     }
 
     /**
@@ -92,12 +86,8 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, 0, errorMessage);
+    function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
+        return _functionCallWithValue(target, data, 0, errorMessage);
     }
 
     /**
@@ -111,11 +101,7 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    ) internal returns (bytes memory) {
+    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
         return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
     }
 
@@ -125,120 +111,31 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
+    function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
         require(address(this).balance >= value, "Address: insufficient balance for call");
-        (bool success, bytes memory returndata) = target.call{value: value}(data);
-        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
+        return _functionCallWithValue(target, data, value, errorMessage);
     }
 
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but performing a static call.
-     *
-     * _Available since v3.3._
-     */
-    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
-        return functionStaticCall(target, data, "Address: low-level static call failed");
-    }
+    function _functionCallWithValue(address target, bytes memory data, uint256 weiValue, string memory errorMessage) private returns (bytes memory) {
+        require(isContract(target), "Address: call to non-contract");
 
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
-     * but performing a static call.
-     *
-     * _Available since v3.3._
-     */
-    function functionStaticCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal view returns (bytes memory) {
-        (bool success, bytes memory returndata) = target.staticcall(data);
-        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but performing a delegate call.
-     *
-     * _Available since v3.4._
-     */
-    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
-        return functionDelegateCall(target, data, "Address: low-level delegate call failed");
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
-     * but performing a delegate call.
-     *
-     * _Available since v3.4._
-     */
-    function functionDelegateCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
-    }
-
-    /**
-     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling
-     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.
-     *
-     * _Available since v4.8._
-     */
-    function verifyCallResultFromTarget(
-        address target,
-        bool success,
-        bytes memory returndata,
-        string memory errorMessage
-    ) internal view returns (bytes memory) {
-        if (success) {
-            if (returndata.length == 0) {
-                // only check isContract if the call was successful and the return data is empty
-                // otherwise we already know that it was a contract
-                require(isContract(target), "Address: call to non-contract");
-            }
-            return returndata;
-        } else {
-            _revert(returndata, errorMessage);
-        }
-    }
-
-    /**
-     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the
-     * revert reason or using the provided one.
-     *
-     * _Available since v4.3._
-     */
-    function verifyCallResult(
-        bool success,
-        bytes memory returndata,
-        string memory errorMessage
-    ) internal pure returns (bytes memory) {
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory returndata) = target.call{ value: weiValue }(data);
         if (success) {
             return returndata;
         } else {
-            _revert(returndata, errorMessage);
-        }
-    }
+            // Look for revert reason and bubble it up if present
+            if (returndata.length > 0) {
+                // The easiest way to bubble the revert reason is using memory via assembly
 
-    function _revert(bytes memory returndata, string memory errorMessage) private pure {
-        // Look for revert reason and bubble it up if present
-        if (returndata.length > 0) {
-            // The easiest way to bubble the revert reason is using memory via assembly
-            /// @solidity memory-safe-assembly
-            assembly {
-                let returndata_size := mload(returndata)
-                revert(add(32, returndata), returndata_size)
+                // solhint-disable-next-line no-inline-assembly
+                assembly {
+                    let returndata_size := mload(returndata)
+                    revert(add(32, returndata), returndata_size)
+                }
+            } else {
+                revert(errorMessage);
             }
-        } else {
-            revert(errorMessage);
         }
     }
 }
